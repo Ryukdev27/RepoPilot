@@ -1,10 +1,11 @@
 import os
 import json
-
+from prompts import SYSTEM_PROMPT
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
-from tools import run_project_tests
+from prompts import build_system_prompt
+from tools import engineer_repository, run_project_tests
 from tools import (
     get_issue,
     get_file,
@@ -13,6 +14,7 @@ from tools import (
     run_project_tests,
     create_pull_request,
     list_files,
+    engineer_repository,
 )
 
 load_dotenv()
@@ -153,6 +155,49 @@ TOOLS = [
     },
     },
     {
+    "name": "engineer_repository",
+    "description": (
+        "Apply a complete code change to a GitHub repository. "
+        "The change is tested with pytest, committed, pushed "
+        "to a new branch, and submitted as a pull request. "
+        "Use this only after inspecting the relevant files."
+    ),
+    "parameters": {
+        "type": "OBJECT",
+        "properties": {
+            "owner": {
+                "type": "STRING",
+                "description": "GitHub repository owner"
+            },
+            "repo": {
+                "type": "STRING",
+                "description": "GitHub repository name"
+            },
+            "file_path": {
+                "type": "STRING",
+                "description": "Repository-relative file to modify"
+            },
+            "new_content": {
+                "type": "STRING",
+                "description": (
+                    "Complete updated content of the file"
+                )
+            },
+            "commit_message": {
+                "type": "STRING",
+                "description": "Git commit message"
+            },
+        },
+        "required": [
+            "owner",
+            "repo",
+            "file_path",
+            "new_content",
+            "commit_message",
+        ],
+    },
+    },
+    {
         "name": "create_pull_request",
         "description": "Create a pull request on GitHub.",
         "parameters": {
@@ -217,6 +262,9 @@ def execute_tool(name, args):
     if name == "list_files":
         return list_files(**args)
 
+    if name == "engineer_repository":
+        return engineer_repository(**args)
+
     return {
         "error": f"Unknown tool: {name}"
     }
@@ -228,41 +276,11 @@ def execute_tool(name, args):
 
 def run_agent(owner: str, repo: str, task: str):
 
-    system_prompt = f"""
-You are an autonomous AI software engineering agent.
-
-Repository:
-{owner}/{repo}
-
-User request:
-{task}
-
-Your workflow:
-
-1. Understand the user's request.
-2. If an issue number is provided, retrieve the issue.
-3. Inspect relevant source files using get_file.
-4. Determine the smallest reasonable code change.
-5. Create a feature branch.
-6. Update the required file.
-7. Run the project's pytest test suite.
-8. If tests pass, create a pull request.
-9. If tests fail, explain the failure and do not create the PR.
-10. Never merge a pull request.
-11. Never delete files, branches, repositories, or issues.
-12. Never modify a file without first reading it.
-13. Never invent repository information.
-
-When modifying code, provide the COMPLETE updated file content
-to update_file.
-
-At the end, summarize:
-- files changed
-- tests executed
-- test result
-- pull request URL, if created
-"""
-
+    system_prompt = system_prompt = build_system_prompt(
+    owner=owner,
+    repo=repo,
+    task=task,
+    )
     contents = [
         types.Content(
             role="user",
@@ -347,10 +365,12 @@ At the end, summarize:
 
             tool_parts.append(
                 types.Part.from_function_response(
-                    name=name,
-                    response=result,
-                )
+                name=name,
+                response={
+                    "result": result
+                },
             )
+        )
 
             logs.append(
                 f"✓ {name} completed"

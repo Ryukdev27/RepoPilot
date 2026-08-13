@@ -1,102 +1,96 @@
 import streamlit as st
+
 from agent import run_agent
 
 
 st.set_page_config(
-    page_title="GitHub AI Engineering Agent",
+    page_title="GitHub AI Engineer",
     page_icon="🤖",
     layout="wide",
 )
 
-
 st.title("🤖 GitHub AI Engineering Agent")
-
 st.caption(
-    "AI-powered software engineering automation using Gemini and GitHub."
+    "Gemini 3.5 Flash • GitHub • Automated Testing • Pull Requests"
 )
 
+col1, col2 = st.columns(2)
 
-with st.sidebar:
-
-    st.header("Repository")
-
+with col1:
     owner = st.text_input(
         "GitHub Owner",
-        value="Ryukdev27",
+        placeholder="e.g. octocat",
     )
 
+with col2:
     repo = st.text_input(
         "Repository",
-        value="Echo-App",
+        placeholder="e.g. hello-world",
     )
 
-
-st.subheader("Engineering Task")
-
 task = st.text_area(
-    "Tell the agent what you want it to do",
+    "Engineering Task",
     placeholder=(
-        "Example: Read issue #1 and explain what needs to be fixed."
+        "Describe the coding task you want the AI engineer to perform..."
     ),
-    height=150,
+    height=140,
 )
 
-
-run = st.button(
-    "🚀 Run Agent",
+if st.button(
+    "🚀 Run AI Engineer",
     type="primary",
     use_container_width=True,
-)
+):
 
+    if not owner.strip():
+        st.warning("Enter a GitHub owner.")
+        st.stop()
 
-if run:
+    if not repo.strip():
+        st.warning("Enter a GitHub repository.")
+        st.stop()
 
-    if not owner or not repo or not task:
-        st.error("Please provide owner, repository and task.")
+    if not task.strip():
+        st.warning("Enter an engineering task.")
+        st.stop()
 
-    else:
+    st.divider()
+    st.subheader("Agent Activity")
 
-        st.subheader("Agent Activity")
+    try:
 
-        with st.spinner("Agent is working..."):
+        with st.spinner(
+            "Gemini 3.5 Flash is engineering..."
+        ):
 
-            try:
+            result = run_agent(
+                owner=owner.strip(),
+                repo=repo.strip(),
+                task=task.strip(),
+            )
 
-                result = run_agent(
-                    owner=owner,
-                    repo=repo,
-                    task=task,
-                )
+        for log in result.get("logs", []):
+            st.write(log)
 
-            except Exception as e:
+        if result.get("status") == "success":
 
-                st.error(f"Agent error: {e}")
-                st.stop()
+            st.success(
+                "Engineering task completed successfully!"
+            )
 
-
-        logs = result.get("logs", [])
-
-        for log in logs:
-            if log.startswith("✓"):
-                st.success(log)
-            elif log.startswith("🔧"):
-                st.info(log)
-            else:
-                st.write(log)
-
-
-        st.divider()
-
-        if result["status"] == "success":
-
-            st.success("Agent completed successfully.")
-
-            st.subheader("Result")
-
-            st.write(result["message"])
+            if result.get("message"):
+                st.markdown("### 🤖 Agent Summary")
+                st.write(result["message"])
 
         else:
 
-            st.error("Agent did not complete successfully.")
+            st.error(
+                "The engineering task did not complete."
+            )
 
-            st.write(result["message"])
+            if result.get("message"):
+                st.write(result["message"])
+
+    except Exception as e:
+
+        st.error(f"Agent error: {e}")

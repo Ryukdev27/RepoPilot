@@ -1,5 +1,6 @@
 from github_client import GitHubClient
 from code_executor import run_tests
+from engineering_pipeline import execute_engineering_change
 
 github = GitHubClient()
 
@@ -44,7 +45,7 @@ def create_pull_request(
     title: str,
     body: str,
     head: str,
-    base: str = "main",
+    base: str = "master",
 ):
     """Create a GitHub pull request."""
     return github.create_pull_request(
@@ -62,3 +63,23 @@ def run_project_tests():
 def list_files(owner: str, repo: str, path: str = ""):
     """List files and directories in a GitHub repository."""
     return github.list_files(owner, repo, path)
+
+def engineer_repository(
+    owner: str,
+    repo: str,
+    file_path: str,
+    new_content: str,
+    commit_message: str,
+):
+    """
+    Apply an AI-generated code change, run tests,
+    commit, push, and create a pull request.
+    """
+
+    return execute_engineering_change(
+        owner=owner,
+        repo=repo,
+        file_path=file_path,
+        new_content=new_content,
+        commit_message=commit_message,
+    )

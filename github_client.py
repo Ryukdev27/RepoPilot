@@ -1,10 +1,13 @@
-import os
-from os import path
-from certifi import contents
-from dotenv import load_dotenv
+import os 
+from os import path 
+import token 
+from turtle import title 
+from urllib import response 
+from certifi import contents 
+from dotenv import load_dotenv 
+import requests 
+load_dotenv() 
 import requests
-load_dotenv()
-
 
 class GitHubClient:
     def __init__(self):
@@ -24,7 +27,8 @@ class GitHubClient:
 
         response = requests.get(
             url,
-            headers=self.headers
+            headers=self.headers,
+            timeout=30,
         )
 
         response.raise_for_status()
@@ -32,11 +36,15 @@ class GitHubClient:
         return response.json()
 
     def get_issue(self, owner, repo, issue_number):
-        url = f"https://api.github.com/repos/{owner}/{repo}/issues/{issue_number}"
+        url = (
+            f"https://api.github.com/repos/"
+            f"{owner}/{repo}/issues/{issue_number}"
+        )
 
         response = requests.get(
             url,
-            headers=self.headers
+            headers=self.headers,
+            timeout=30,
         )
 
         response.raise_for_status()
@@ -44,32 +52,51 @@ class GitHubClient:
         return response.json()
 
     def get_file(self, owner, repo, path):
-        url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
+        url = (
+            f"https://api.github.com/repos/"
+            f"{owner}/{repo}/contents/{path}"
+        )
 
         response = requests.get(
             url,
-            headers=self.headers
+            headers=self.headers,
+            timeout=30,
         )
 
         response.raise_for_status()
 
         return response.json()
-    
-    def list_files(self, owner: str, repo: str, path: str = ""):
-        url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
+
+    def list_files(
+        self,
+        owner: str,
+        repo: str,
+        path: str = "",
+    ):
+        url = (
+            f"https://api.github.com/repos/"
+            f"{owner}/{repo}/contents/{path}"
+        )
+
         response = requests.get(
             url,
-            headers=self.headers
+            headers=self.headers,
+            timeout=30,
         )
+
         response.raise_for_status()
+
         contents = response.json()
+
         files = []
+
         for item in contents:
             files.append({
                 "name": item["name"],
                 "path": item["path"],
                 "type": item["type"],
             })
+
         return files
 
     def create_pull_request(
@@ -81,20 +108,39 @@ class GitHubClient:
         head: str,
         base: str = None,
     ):
-        repository = self.get_repository(owner, repo)
-
+        # Get repository information if base wasn't provided
         if base is None:
-            base = repository.default_branch
+            repository = self.get_repository(owner, repo)
+            base = repository["default_branch"]
 
-        pr = repository.create_pull(
-            title=title,
-            body=body,
-            head=head,
-            base=base,
+        url = (
+            f"https://api.github.com/repos/"
+            f"{owner}/{repo}/pulls"
         )
 
+        payload = {
+            "title": title,
+            "body": body,
+            "head": head,
+            "base": base,
+        }
+
+        response = requests.post(
+            url,
+            headers=self.headers,
+            json=payload,
+            timeout=30,
+        )
+
+        response.raise_for_status()
+
+        data = response.json()
+
         return {
-            "number": pr.number,
-            "url": pr.html_url,
-            "title": pr.title,
-    }
+            "number": data["number"],
+            "url": data["html_url"],
+            "title": data["title"],
+            "state": data["state"],
+            "head": data["head"]["ref"],
+            "base": data["base"]["ref"],
+        }
